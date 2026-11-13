@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pro Health Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <!-- গ্রাফ বানানোর জন্য Chart.js লাইব্রেরি -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0d0d0d; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 20px; }
+        h2 { color: #00ffcc; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
+        .container { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; }
+        .box { background: #1a1a1a; padding: 30px; border-radius: 15px; width: 200px; box-shadow: 0 8px 32px rgba(0,255,150,0.1); border: 1px solid #333; transition: 0.3s; }
+        .alert { box-shadow: 0 8px 32px rgba(255,0,0,0.6); border: 1px solid red; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.8; } }
+        h1 { color: #888; font-size: 18px; text-transform: uppercase; margin-top: 0; }
+        .value { font-size: 50px; font-weight: bold; margin: 15px 0; }
+        #bpm { color: #ff3366; }
+        #spo2 { color: #33ccff; }
+        #steps { color: #00ffcc; }
+        .chart-container { width: 80%; max-width: 800px; margin: 40px auto; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+    <h2>🏥 ICU / Smartwatch Live Monitor</h2>
+    
+    <div class="container">
+        <div id="bpm-box" class="box">
+            <h1>Heart Rate</h1>
+            <div class="value"><span id="bpm">--</span> <span style="font-size: 20px">bpm</span></div>
+        </div>
+        <div class="box">
+            <h1>Oxygen (SpO2)</h1>
+            <div class="value"><span id="spo2">--</span> <span style="font-size: 20px">%</span></div>
+        </div>
+        <div class="box">
+            <h1>Live Steps</h1>
+            <div class="value"><span id="steps">0</span></div>
+        </div>
+    </div>
+
+    <!-- এখানে লাইভ গ্রাফটা দেখাবে -->
+    <div class="chart-container">
+        <canvas id="ecgChart"></canvas>
+    </div>
+
+    <script>
+        var socket = io(); 
+        
+        // Chart.js গ্রাফ সেটআপ
+        var ctx = document.getElementById('ecgChart').getContext('2d');
+        var ecgChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''), // X-axis (সময়)
+                datasets: [{
+                    label: 'Live Heart Rate (BPM)',
+                    data: Array(20).fill(75), // শুরুর ডেটা
+                    borderColor: '#ff3366',
+                    borderWidth: 3,
+                    backgroundColor: 'rgba(255, 51, 102, 0.1)',
+                    fill: true,
+                    tension: 0.4, // লাইনটা স্মুথ করার জন্য
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false, // রিয়েল-টাইম ফিলের জন্য অ্যানিমেশন বন্ধ
+                scales: {
+                    y: { min: 40, max: 150, grid: { color: '#333' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { labels: { color: 'white' } } }
+            }
+        });
+
+        // ডেটা রিসিভ করে আপডেট করার লজিক
+        socket.on('update_dashboard', function(data) {
+            document.getElementById('bpm').innerText = data.bpm;
+            document.getElementById('spo2').innerText = data.spo2;
+            if(data.steps !== undefined) document.getElementById('steps').innerText = data.steps;
+
+            // ইমার্জেন্সি অ্যালার্ট
+            if(data.bpm > 100) {
+                document.getElementById('bpm-box').classList.add('alert');
+            } else {
+                document.getElementById('bpm-box').classList.remove('alert');
+            }
+
+            // গ্রাফে নতুন ডেটা যোগ করা এবং পুরোনো ডেটা মুছে ফেলা (চলমান ফিলের জন্য)
+            var chartData = ecgChart.data.datasets[0].data;
+            chartData.push(data.bpm); 
+            chartData.shift(); 
+            ecgChart.update();
+        });
+    </script>
+</body>
+</html>

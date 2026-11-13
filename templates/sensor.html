@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Virtual Wearable Sensor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body { font-family: Arial; padding: 30px; text-align: center; background: #f4f4f4; }
+        .slider-container { margin: 20px; padding: 20px; background: white; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
+        input[type="range"] { width: 80%; }
+        .step-box { background: #e6ffe6; border: 2px solid #00cc66; }
+        .step-btn { margin-top: 15px; padding: 15px 30px; font-size: 20px; background-color: #00cc66; color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.2); }
+        .step-btn:active { background-color: #00994d; transform: scale(0.98); }
+    </style>
+</head>
+<body>
+    <h2>Smartphone Sensor</h2>
+
+    <!-- স্টেপ কাউন্টার বক্স -->
+    <div class="slider-container step-box">
+        <h3>🚶‍♂️ Steps: <span id="step_val" style="font-size:40px; color:#00cc66;">0</span></h3>
+        <!-- ম্যানুয়াল স্টেপ বাটন -->
+        <button class="step-btn" onclick="manualStep()">👣 Tap for 1 Step</button>
+        <p style="color: gray; font-size: 12px; margin-top: 10px;">(Tap button as you walk)</p>
+    </div>
+
+    <!-- হার্ট রেট ও অক্সিজেন স্লাইডার -->
+    <div class="slider-container">
+        <h3>Heart Rate: <span id="bpm_val">75</span> bpm</h3>
+        <input type="range" id="bpm_slider" min="40" max="150" value="75" oninput="sendData()">
+    </div>
+
+    <div class="slider-container">
+        <h3>Oxygen (SpO2): <span id="spo2_val">98</span> %</h3>
+        <input type="range" id="spo2_slider" min="80" max="100" value="98" oninput="sendData()">
+    </div>
+
+    <script>
+        var socket = io();
+        var steps = 0;
+
+        // ড্যাশবোর্ডে ডেটা পাঠানোর ফাংশন
+        function sendData() {
+            var current_bpm = document.getElementById('bpm_slider').value;
+            var current_spo2 = document.getElementById('spo2_slider').value;
+            
+            document.getElementById('bpm_val').innerText = current_bpm;
+            document.getElementById('spo2_val').innerText = current_spo2;
+
+            socket.emit('sensor_data', {bpm: current_bpm, spo2: current_spo2, steps: steps});
+        }
+
+        // বাটন চাপলে স্টেপ বাড়ানোর ফাংশন
+        function manualStep() {
+            steps++;
+            document.getElementById('step_val').innerText = steps;
+            sendData(); // স্টেপ বাড়লেই ল্যাপটপে আপডেট চলে যাবে
+        }
+
+        // আসল সেন্সর ট্রাই করার কোড (যদি পারমিশন পায়)
+        if (window.DeviceMotionEvent) {
+            var lastShakeTime = 0;
+            window.addEventListener('devicemotion', function(event) {
+                var x = event.accelerationIncludingGravity.x;
+                var y = event.accelerationIncludingGravity.y;
+                var z = event.accelerationIncludingGravity.z;
+                var acceleration = Math.sqrt(x*x + y*y + z*z);
+                var currentTime = new Date().getTime();
+                
+                if (acceleration > 13 && (currentTime - lastShakeTime) > 500) { 
+                    manualStep();
+                    lastShakeTime = currentTime;
+                }
+            });
+        }
+    </script>
+</body>
+</html>
